@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación 3D Kia Avila Camacho</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">Usa el mouse para rotar, hacer zoom y moverte.</div>
+    <!-- Import map para Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. CONFIGURACIÓN BÁSICA ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+        scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Posición similar a la foto original
+        camera.position.set(15, 5, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 2, 0);
+        controls.update();
+
+        // --- 2. ILUMINACIÓN ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        scene.add(dirLight);
+
+        // --- 3. MATERIALES Y TEXTURAS GENERADAS ---
+
+        // Función para crear textura de texto (para "KIA" y "Avila Camacho")
+        function createTextTexture(text, bgColor, textColor, width, height, rotation = 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // Fondo
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, width, height);
+
+            // Texto
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(rotation);
+            ctx.font = 'bold 60px Arial';
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 0, 0);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        const roadTexture = createTextTexture("AVILA CAMACHO", "#333333", "#FFFFFF", 1024, 512, -Math.PI / 6);
+        roadTexture.wrapS = THREE.RepeatWrapping;
+        roadTexture.wrapT = THREE.RepeatWrapping;
+        roadTexture.repeat.set(1, 4);
+
+        const kiaLogoTexture = createTextTexture("KIA", "#111111", "#FFFFFF", 512, 256);
+
+        // Materiales
+        const matConcrete = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.8 });
+        const matBlackMetal = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+        const matGlass = new THREE.MeshStandardMaterial({
+            color: 0x88ccff,
+            transparent: true,
+            opacity: 0.3,
+            roughness: 0.0,
+            metalness: 0.9
+        });
+        const matRoad = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+        // --- 4. CONSTRUCCIÓN DEL ESCENARIO ---
+
+        // A. CALLE (AVILA CAMACHO)
+        const roadGeo = new THREE.PlaneGeometry(60, 60);
+        const road = new THREE.Mesh(roadGeo, matRoad);
+        road.rotation.x = -Math.PI / 2;
+        road.receiveShadow = true;
+        scene.add(road);
+
+        // Texto en el piso (Decal o plano ligeramente elevado)
+        const textPlaneGeo = new THREE.PlaneGeometry(20, 5);
+        const textMat = new THREE.MeshBasicMaterial({ map: createTextTexture("AVILA CAMACHO", "rgba(0,0,0,0)", "#dddddd", 1024, 256, 0), transparent: true, opacity: 0.8 });
+        const textMesh = new THREE.Mesh(textPlaneGeo, textMat);
+        textMesh.rotation.x = -Math.PI / 2;
+        textMesh.rotation.z = 0.3; // Inclinación de la calle
+        textMesh.position.set(5, 0.05, 15);
+        scene.add(textMesh);
+
+        // Bqueta (Sidewalk)
+        const sidewalkGeo = new THREE.BoxGeometry(40, 0.2, 30);
+        const sidewalk = new THREE.Mesh(sidewalkGeo, matConcrete);
+        sidewalk.position.set(0, 0.1, -5);
+        sidewalk.receiveShadow = true;
+        scene.add(sidewalk);
+
+        // B. EL SEGUNDO PISO (Izquierda)
+        const pillarGeo = new THREE.CylinderGeometry(1.5, 1.5, 15, 32);
+        const pillar1 = new THREE.Mesh(pillarGeo, matConcrete);
+        pillar1.position.set(-15, 7.5, 20);
+        scene.add(pillar1);
+
+        const pillar2 = new THREE.Mesh(pillarGeo, matConcrete);
+        pillar2.position.set(-18, 7.5, 0);
+        scene.add(pillar2);
+
+        // La "Ballena" (Plataforma del segundo piso)
+        const highwayGeo = new THREE.BoxGeometry(10, 2, 60);
+        const highway = new THREE.Mesh(highwayGeo, matConcrete);
+        highway.position.set(-16, 15, 0);
+        highway.rotation.y = -0.1; // Curva ligera
+        highway.castShadow = true;
+        scene.add(highway);
+
+        // C. LA AGENCIA (Edificio)
+        const buildingGroup = new THREE.Group();
+
+        // 1. Estructura Principal (Techo Negro)
+        const roofGeo = new THREE.BoxGeometry(25, 3, 15);
+        const roof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ map: kiaLogoTexture }));
+        // Un truco para poner el logo solo en las caras laterales requeriría mapeo UV o multi-material, 
+        // usaremos un bloque negro y un plano para el logo por simplicidad.
+        const roofBlack = new THREE.Mesh(roofGeo, matBlackMetal);
+        roofBlack.position.set(0, 6.5, 0);
+        buildingGroup.add(roofBlack);
+
+        // Logo en la fachada superior
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({ map: kiaLogoTexture, transparent: true }));
+        logoPlane.position.set(5, 6.5, 7.6);
+        buildingGroup.add(logoPlane);
+
+        // 2. Paredes de Cristal
+        const glassGeo = new THREE.BoxGeometry(24.5, 5, 14.5);
+        const glassWalls = new THREE.Mesh(glassGeo, matGlass);
+        glassWalls.position.set(0, 2.5, 0);
+        buildingGroup.add(glassWalls);
+
+        // 3. Columnas internas
+        for (let x = -10; x <= 10; x += 10) {
+            const colGeo = new THREE.CylinderGeometry(0.3, 0.3, 5);
+            const col = new THREE.Mesh(colGeo, new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+            col.position.set(x, 2.5, 6);
+            buildingGroup.add(col);
+        }
+
+        // 4. Totem "KIA" (El letrero vertical en la esquina)
+        const totemGeo = new THREE.BoxGeometry(2, 4, 0.5);
+        const totem = new THREE.Mesh(totemGeo, matBlackMetal);
+        totem.position.set(12, 2, 10);
+        scene.add(totem);
+
+        const totemLogo = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1), new THREE.MeshBasicMaterial({ map: kiaLogoTexture }));
+        totemLogo.position.set(12, 3, 10.3);
+        scene.add(totemLogo);
+
+        // Ubicar el edificio
+        buildingGroup.position.set(0, 0.1, -5);
+        scene.add(buildingGroup);
+
+        // D. AUTOS (Simplificados Low-Poly)
+        function createCar(color, x, z, rot) {
+            const carGroup = new THREE.Group();
+
+            // Chasis
+            const bodyGeo = new THREE.BoxGeometry(4, 1, 1.8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: color });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            body.castShadow = true;
+            carGroup.add(body);
+
+            // Cabina
+            const cabinGeo = new THREE.BoxGeometry(2.5, 0.8, 1.6);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Vidrios oscuros
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(-0.2, 1.4, 0);
+            carGroup.add(cabin);
+
+            // Ruedas
+            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.2, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+
+            const pos = [[-1.2, 0.4, 0.8], [1.2, 0.4, 0.8], [-1.2, 0.4, -0.8], [1.2, 0.4, -0.8]];
+            pos.forEach(p => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.x = Math.PI / 2;
+                wheel.position.set(...p);
+                carGroup.add(wheel);
+            });
+
+            carGroup.position.set(x, 0.2, z);
+            carGroup.rotation.y = rot;
+            return carGroup;
+        }
+
+        // Autos dentro de la agencia (Exhibición)
+        const car1 = createCar(0xff0000, -5, -2, 0.5); // Rojo
+        scene.add(car1);
+        const car2 = createCar(0xffffff, 0, -4, -0.5); // Blanco
+        scene.add(car2);
+
+        // Auto en la calle (como el gris de la foto)
+        const carStreet = createCar(0xaaaaaa, 10, 15, -0.2); // Gris
+        scene.add(carStreet);
+
+        // --- 5. ANIMACIÓN ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Mover coche de la calle levemente para dar vida
+            carStreet.position.x -= 0.05;
+            if (carStreet.position.x < -30) carStreet.position.x = 30;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Ajuste de ventana
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>
